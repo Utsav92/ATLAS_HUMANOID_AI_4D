@@ -43,6 +43,14 @@ def main():
                 nearest = valid[np.argmin(np.abs(valid - b))]
                 rob_lms[b, w_idx] = rob_lms[nearest, w_idx]
 
+    # Clean up watermark text '@SALSAMISAKI' spikes where wrists jump to face/throat
+    for w_idx, s_idx in [(15, 11), (16, 12)]:
+        for k in range(int(1.8 * 300), int(5.5 * 300)):
+            dz = rob_lms[k, w_idx, 2] - rob_lms[k, s_idx, 2]
+            if dz > -0.22:
+                rob_lms[k, w_idx, 2] = rob_lms[k, s_idx, 2] - 0.32
+                rob_lms[k, w_idx, 0] = rob_lms[k, s_idx, 0] + 0.12
+
     # 2. Continuous Body Facing Angle (Yaw)
     # MediaPipe: 11=L shoulder, 12=R shoulder, 23=L hip, 24=R hip
     v_lat_sh = rob_lms[:, 11] - rob_lms[:, 12]
@@ -273,9 +281,15 @@ def main():
             else:
                 elbow = np.clip(1.52 - bend_el * 1.25, -0.80, 1.50)
 
-            # Shoulder yaw from elbow bend normal
+            # Shoulder yaw from elbow bend normal (regularized to eliminate singularities)
             n_arm = np.cross(u_loc, v_loc)
-            yaw_arm = np.arctan2(n_arm[2], n_arm[1] if side == 'L' else -n_arm[1])
+            norm_n = np.linalg.norm(n_arm)
+            if norm_n > 0.15:
+                yaw_arm_raw = np.arctan2(n_arm[2], n_arm[1] if side == 'L' else -n_arm[1])
+                yaw_weight = np.clip((norm_n - 0.15) / 0.20, 0.0, 1.0)
+                yaw_arm = yaw_weight * yaw_arm_raw
+            else:
+                yaw_arm = 0.0
 
             q_traj[i, q_p] = np.clip(pitch, -2.8, 2.5)
             q_traj[i, q_r] = np.clip(roll, -0.6 if side == 'L' else -2.2, 2.2 if side == 'L' else 0.6)
@@ -317,7 +331,25 @@ def main():
             q_traj[i, 31] = (1 - w_wave) * q_traj[i, 31] + w_wave * 0.00
             q_traj[i, 32] = (1 - w_wave) * q_traj[i, 32] + w_wave * 0.85
 
-        # 3. Salsa dive & forward bow (6.0s - 7.6s - Image 2 match):
+        # 3. Salsa basic frame (1.8s - 5.8s): Clean Cuban salsa hand framing at lower chest/waist
+        # following the 187.5 BPM rhythm with zero face touching
+        if 1.8 <= t_sec < 5.8:
+            w_basic = 1.0 if (2.1 <= t_sec <= 5.4) else (
+                0.5 * (1.0 - np.cos(np.pi * (t_sec - 1.8) / 0.3)) if t_sec < 2.1 else
+                0.5 * (1.0 + np.cos(np.pi * (t_sec - 5.4) / 0.4))
+            )
+            # Left arm salsa framing
+            q_traj[i, 22] = (1 - w_basic) * q_traj[i, 22] + w_basic * -0.15
+            q_traj[i, 23] = (1 - w_basic) * q_traj[i, 23] + w_basic * (0.35 + 0.06 * w_shift)
+            q_traj[i, 24] = (1 - w_basic) * q_traj[i, 24] + w_basic * 0.00
+            q_traj[i, 25] = (1 - w_basic) * q_traj[i, 25] + w_basic * (0.85 + 0.08 * abs(np.cos(beat_phase)))
+            # Right arm salsa framing
+            q_traj[i, 29] = (1 - w_basic) * q_traj[i, 29] + w_basic * -0.15
+            q_traj[i, 30] = (1 - w_basic) * q_traj[i, 30] + w_basic * (-0.35 + 0.06 * w_shift)
+            q_traj[i, 31] = (1 - w_basic) * q_traj[i, 31] + w_basic * 0.00
+            q_traj[i, 32] = (1 - w_basic) * q_traj[i, 32] + w_basic * (0.85 + 0.08 * abs(np.cos(beat_phase)))
+
+        # 4. Salsa dive & forward bow (6.0s - 7.6s - Image 2 match):
         # Torso leans forward gracefully, arms winged back behind torso, standing poised on feet (never falling down)
         if 6.0 <= t_sec <= 7.6:
             if t_sec < 6.4:
@@ -337,7 +369,27 @@ def main():
             q_traj[i, 31] = (1 - w_dive_arms) * q_traj[i, 31] + w_dive_arms * 0.00
             q_traj[i, 32] = (1 - w_dive_arms) * q_traj[i, 32] + w_dive_arms * 0.20
 
-        # 2. Salsa styling groove (8.5s - 9.5s): Left elbow flared high and outward
+        # 5. Post-dive expansive arm spread flourish (7.6s - 8.5s):
+        # Rising from dive and spreading both arms wide open laterally/backward
+        if 7.6 <= t_sec <= 8.5:
+            if t_sec < 7.9:
+                w_spread = 0.5 * (1.0 - np.cos(np.pi * (t_sec - 7.6) / 0.3))
+            elif t_sec > 8.2:
+                w_spread = 0.5 * (1.0 + np.cos(np.pi * (t_sec - 8.2) / 0.3))
+            else:
+                w_spread = 1.0
+            # Left arm spread wide
+            q_traj[i, 22] = (1 - w_spread) * q_traj[i, 22] + w_spread * 0.25
+            q_traj[i, 23] = (1 - w_spread) * q_traj[i, 23] + w_spread * 1.35
+            q_traj[i, 24] = (1 - w_spread) * q_traj[i, 24] + w_spread * 0.00
+            q_traj[i, 25] = (1 - w_spread) * q_traj[i, 25] + w_spread * 0.15
+            # Right arm spread wide
+            q_traj[i, 29] = (1 - w_spread) * q_traj[i, 29] + w_spread * 0.25
+            q_traj[i, 30] = (1 - w_spread) * q_traj[i, 30] + w_spread * -1.35
+            q_traj[i, 31] = (1 - w_spread) * q_traj[i, 31] + w_spread * 0.00
+            q_traj[i, 32] = (1 - w_spread) * q_traj[i, 32] + w_spread * 0.15
+
+        # 6. Salsa styling groove (8.5s - 9.5s): Left elbow flared high and outward
         #    at shoulder level (90 deg), hand in front of chest, right arm down along thigh.
         if 8.4 <= t_sec <= 9.6:
             if t_sec < 8.7:
@@ -362,11 +414,12 @@ def main():
 
     print(f"Kinematics solved in {time.time() - t0:.2f}s!")
 
-    # 5. Smooth joint trajectories across time
-    win_jnt = 7
-    kernel_jnt = np.ones(win_jnt) / win_jnt
+    # 5. Butterworth 4th-order zero-phase lowpass filter (6.0 Hz cutoff)
+    # Eliminates high-frequency jerk and guarantees smooth motor trajectories
+    from scipy.signal import butter, filtfilt
+    b, a = butter(4, 6.0 / (0.5 * 300.0), btype='low')
     for j in range(7, 36):
-        q_traj[:, j] = np.convolve(q_traj[:, j], kernel_jnt, mode='same')
+        q_traj[:, j] = filtfilt(b, a, q_traj[:, j])
 
     # 6. DYNAMIC GROUND CLAMPING: ZERO HOVERING, NATURAL CROUCHING
     print("Executing dynamic ground clamping across all 9,000 frames...")

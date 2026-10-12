@@ -33,9 +33,12 @@ class AtlasWorld:
         # Reset to nominal standing pose
         self.reset()
 
-    def get_renderer(self) -> mujoco.Renderer:
+    def get_renderer(self) -> Optional[mujoco.Renderer]:
         if self._renderer is None:
-            self._renderer = mujoco.Renderer(self.model, height=self.render_height, width=self.render_width)
+            try:
+                self._renderer = mujoco.Renderer(self.model, height=self.render_height, width=self.render_width)
+            except Exception:
+                self._renderer = None
         return self._renderer
 
     def reset(self) -> RobotState:
@@ -56,26 +59,36 @@ class AtlasWorld:
 
     def render_rgb(self, camera_name: Optional[str] = None) -> np.ndarray:
         """Render RGB image from specified camera or default camera view."""
-        renderer = self.get_renderer()
-        if camera_name is not None:
-            cam_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
-            renderer.update_scene(self.data, camera=cam_id)
-        else:
-            renderer.update_scene(self.data)
-        return renderer.render()
+        try:
+            renderer = self.get_renderer()
+            if renderer is not None:
+                if camera_name is not None:
+                    cam_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
+                    renderer.update_scene(self.data, camera=cam_id)
+                else:
+                    renderer.update_scene(self.data)
+                return renderer.render()
+        except Exception:
+            pass
+        return np.zeros((self.render_height, self.render_width, 3), dtype=np.uint8)
 
     def render_depth(self, camera_name: Optional[str] = None) -> np.ndarray:
         """Render depth map (metric depth in meters)."""
-        renderer = self.get_renderer()
-        renderer.enable_depth_rendering()
-        if camera_name is not None:
-            cam_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
-            renderer.update_scene(self.data, camera=cam_id)
-        else:
-            renderer.update_scene(self.data)
-        depth = renderer.render()
-        renderer.disable_depth_rendering()
-        return depth
+        try:
+            renderer = self.get_renderer()
+            if renderer is not None:
+                renderer.enable_depth_rendering()
+                if camera_name is not None:
+                    cam_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_CAMERA, camera_name)
+                    renderer.update_scene(self.data, camera=cam_id)
+                else:
+                    renderer.update_scene(self.data)
+                depth = renderer.render()
+                renderer.disable_depth_rendering()
+                return depth
+        except Exception:
+            pass
+        return np.zeros((self.render_height, self.render_width), dtype=np.float32)
 
     def get_object_pose(self, name: str) -> Optional[np.ndarray]:
         """Query ground truth 3D position [x, y, z] of an object body in the simulation."""

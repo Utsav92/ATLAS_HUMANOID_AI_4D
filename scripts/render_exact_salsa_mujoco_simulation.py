@@ -146,9 +146,15 @@ def main():
 
         # Save verification snapshots
         brain_dir = "C:/Users/Utsav/.gemini/antigravity/brain/bf9fcd1b-d708-48b1-8610-01f91dc277ee"
-        if i + 1 == 39: # t=1.27s - Opening salsa wave (User Image 1)
+        if i + 1 == 15: # t=0.50s - Intro salsa groove framing
+            cv2.imwrite("evaluation/first10_t00_50_groove.png", composite)
+            cv2.imwrite(f"{brain_dir}/first10_t00_50_groove.png", composite)
+        elif i + 1 == 39: # t=1.27s - Opening salsa wave (User Image 1)
             cv2.imwrite("evaluation/fixed_user1_t1_27.png", composite)
             cv2.imwrite(f"{brain_dir}/fixed_user1_t1_27.png", composite)
+        elif i + 1 == 60: # t=2.00s - Cuban salsa basic frame (clean hands, zero throat scratch)
+            cv2.imwrite("evaluation/first10_t02_00_frame.png", composite)
+            cv2.imwrite(f"{brain_dir}/first10_t02_00_frame.png", composite)
         elif i + 1 == 91: # t=3.00s - Relaxed intro bounce
             cv2.imwrite("evaluation/img3_verified_t03_00.png", composite)
             cv2.imwrite(f"{brain_dir}/img3_verified_t03_00.png", composite)
