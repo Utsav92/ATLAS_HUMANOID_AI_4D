@@ -1,0 +1,4 @@
+ATLAS 4D Component: TEMPORAL_4D
+Purpose: Historical Poses (5 frames), Velocity Vectors & Time Scrubber
+Status: Active
+Resolution: 640x360 @ 15 FPS

@@ -1,0 +1,4 @@
+ATLAS 4D Component: ROBOT_RENDERER
+Purpose: 3D Humanoid Mesh, Link Transforms & Kinematic Chain
+Status: Active
+Resolution: 640x360 @ 15 FPS

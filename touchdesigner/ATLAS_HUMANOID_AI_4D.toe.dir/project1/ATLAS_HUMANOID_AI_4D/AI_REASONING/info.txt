@@ -1,0 +1,4 @@
+ATLAS 4D Component: AI_REASONING
+Purpose: RAG Knowledge Retrieval & World State Hallucination Check
+Status: Active
+Resolution: 640x360 @ 15 FPS

@@ -1,0 +1,4 @@
+ATLAS 4D Component: NLP_COMMAND
+Purpose: Instruction Input Buffer & Entity Resolution Status
+Status: Active
+Resolution: 640x360 @ 15 FPS

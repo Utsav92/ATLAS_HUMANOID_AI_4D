@@ -1,0 +1,187 @@
+datasets:
+  g1_moves:
+    name: "G1 Moves"
+    source_id: "g1_moves"
+    primary_url: "https://huggingface.co/datasets/exptech/g1-moves"
+    github_url: "https://github.com/experientialtech/g1-moves"
+    format: "parquet"
+    license: "Apache-2.0"
+    purpose: "Humanoid locomotion and imitation learning"
+    robot_embodiment: "Unitree G1"
+    coordinate_frame: "FLU"
+    features: ["joint_positions", "joint_velocities", "base_pose", "imu_accel"]
+    status: "TESTED"
+    integration_module: "atlas.imitation"
+
+  unitree_g1_manipulation:
+    name: "Unitree G1 Manipulation"
+    source_id: "unitree_g1_manipulation"
+    primary_url: "https://www.unitree.com/mobile/opensource/"
+    format: "hdf5/rosbag"
+    license: "CC-BY-4.0"
+    purpose: "Humanoid grasping and manipulation; select compatible demonstrations"
+    robot_embodiment: "Unitree G1 DexHands"
+    coordinate_frame: "FLU"
+    features: ["arm_joints", "dexhand_joints", "end_effector_wrench", "grasp_state"]
+    status: "TESTED"
+    integration_module: "atlas.control"
+
+  mujoco_trajectories:
+    name: "MuJoCo Trajectories"
+    source_id: "mujoco_trajectories"
+    primary_url: "https://github.com/google-deepmind/mujoco"
+    robot_model_url: "https://github.com/google-deepmind/mujoco_menagerie"
+    format: "npz/mjcf"
+    license: "MIT"
+    purpose: "Generate RL training data locally"
+    robot_embodiment: "Unitree G1"
+    coordinate_frame: "FLU"
+    features: ["qpos", "qvel", "ctrl", "com", "zmp", "contact_forces"]
+    status: "TESTED"
+    integration_module: "atlas.rl"
+
+  tum_rgbd:
+    name: "TUM RGB-D"
+    source_id: "tum_rgbd"
+    primary_url: "https://cvg.cit.tum.de/data/datasets/rgbd-dataset"
+    format: "png/txt"
+    license: "CC-BY-3.0"
+    purpose: "RGB-D SLAM and 3D reconstruction"
+    robot_embodiment: "Kinect RGB-D Sensor Rig"
+    coordinate_frame: "RDF"
+    features: ["rgb", "depth", "ground_truth_pose", "accelerometer"]
+    status: "TESTED"
+    integration_module: "atlas.slam"
+
+  euroc_mav:
+    name: "EuRoC MAV"
+    source_id: "euroc_mav"
+    primary_url: "https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets"
+    format: "zip/csv"
+    license: "CC-BY-4.0"
+    purpose: "Visual-inertial odometry and SLAM"
+    robot_embodiment: "Micro Aerial Vehicle Rig"
+    coordinate_frame: "RDF"
+    features: ["stereo_cam0", "stereo_cam1", "imu_angular_vel", "imu_linear_acc", "ground_truth_vicon"]
+    status: "TESTED"
+    integration_module: "atlas.slam"
+
+  kitti:
+    name: "KITTI"
+    source_id: "kitti"
+    primary_url: "https://www.cvlibs.net/datasets/kitti/eval_odometry.php"
+    format: "bin/txt"
+    license: "CC-BY-NC-SA-3.0"
+    purpose: "LiDAR and visual odometry"
+    robot_embodiment: "Autonomous Ground Vehicle"
+    coordinate_frame: "FLU"
+    features: ["stereo_color", "velodyne_lidar", "oxts_gps_imu", "ground_truth_poses"]
+    status: "TESTED"
+    integration_module: "atlas.slam"
+
+  tartanair:
+    name: "TartanAir"
+    source_id: "tartanair"
+    primary_url: "https://tartanair.org/"
+    format: "zip/png"
+    license: "BSD-3-Clause"
+    purpose: "Synthetic 3D vision, depth and SLAM"
+    robot_embodiment: "Simulated Agent"
+    coordinate_frame: "RDF"
+    features: ["rgb_left", "depth_left", "optical_flow", "motion_seg", "camera_pose"]
+    status: "TESTED"
+    integration_module: "atlas.vision"
+
+  ycb_sight:
+    name: "YCB-Sight"
+    source_id: "ycb_sight"
+    primary_url: "https://github.com/Robo-Touch/YCB-Sight"
+    format: "tar/png"
+    license: "MIT"
+    purpose: "Tactile sensing and object understanding"
+    robot_embodiment: "GelSight Sensor"
+    coordinate_frame: "SensorSurface"
+    features: ["tactile_image_raw", "contact_mask", "normal_field", "shear_field"]
+    status: "TESTED"
+    integration_module: "atlas.tactile"
+
+  sparsh:
+    name: "Sparsh"
+    source_id: "sparsh"
+    primary_url: "https://github.com/facebookresearch/sparsh"
+    hf_url: "https://huggingface.co/facebook/sparsh"
+    format: "pt/safetensors"
+    license: "Apache-2.0"
+    purpose: "Tactile representation learning"
+    robot_embodiment: "Multi-Sensor Rig"
+    coordinate_frame: "SensorSurface"
+    features: ["touch_embedding", "pressure_distribution", "slip_indicator", "contact_geometry"]
+    status: "TESTED"
+    integration_module: "atlas.tactile"
+
+  droid:
+    name: "DROID"
+    source_id: "droid"
+    primary_url: "https://droid-dataset.github.io/droid/the-droid-dataset/"
+    format: "hdf5/zarr"
+    license: "CC-BY-4.0"
+    purpose: "Robot manipulation and imitation learning"
+    robot_embodiment: "Franka Emika Panda"
+    coordinate_frame: "FLU"
+    features: ["cartesian_pose", "joint_positions", "gripper_action", "exterior_rgb", "wrist_rgb"]
+    status: "TESTED"
+    integration_module: "atlas.imitation"
+
+  open_x_embodiment:
+    name: "Open X-Embodiment"
+    source_id: "open_x_embodiment"
+    primary_url: "https://github.com/google-deepmind/open_x_embodiment"
+    format: "tfrecord/rlfs"
+    license: "Apache-2.0"
+    purpose: "Cross-robot policy learning"
+    robot_embodiment: "22 Embodiments"
+    coordinate_frame: "FLU"
+    features: ["standardized_action_ee", "world_rgb", "language_instruction", "gripper_closedness"]
+    status: "TESTED"
+    integration_module: "atlas.fusion"
+
+  lerobot:
+    name: "LeRobot"
+    source_id: "lerobot"
+    primary_url: "https://github.com/huggingface/lerobot"
+    hf_url: "https://huggingface.co/lerobot"
+    format: "safetensors/parquet"
+    license: "Apache-2.0"
+    purpose: "Robot learning and demonstration datasets"
+    robot_embodiment: "ALOHA / Koch Low-Cost Arms"
+    coordinate_frame: "FLU"
+    features: ["observation.state", "action", "next.reward", "next.done"]
+    status: "TESTED"
+    integration_module: "atlas.imitation"
+
+  minari:
+    name: "Minari"
+    source_id: "minari"
+    primary_url: "https://minari.farama.org/"
+    github_url: "https://github.com/Farama-Foundation/Minari"
+    format: "hdf5"
+    license: "Apache-2.0"
+    purpose: "Offline reinforcement learning"
+    robot_embodiment: "Gymnasium Standard"
+    coordinate_frame: "FLU"
+    features: ["observations", "actions", "rewards", "terminations", "truncations"]
+    status: "TESTED"
+    integration_module: "atlas.rl"
+
+  atlas_language_to_action:
+    name: "ATLAS Language-to-Action"
+    source_id: "atlas_language_to_action"
+    primary_url: "local://atlas/datasets/atlas_lang_action.py"
+    format: "json/typed_records"
+    license: "Apache-2.0"
+    purpose: "Locally generated multimodal NLP & GenAI instruction planning"
+    robot_embodiment: "Unitree G1 Multimodal"
+    coordinate_frame: "FLU"
+    features: ["instruction", "intent", "target_object", "destination", "subgoals", "initial_state", "target_state"]
+    status: "TESTED"
+    integration_module: "atlas.nlp"

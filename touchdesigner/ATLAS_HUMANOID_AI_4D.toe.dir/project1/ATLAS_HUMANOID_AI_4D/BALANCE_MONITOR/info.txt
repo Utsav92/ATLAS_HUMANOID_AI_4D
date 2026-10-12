@@ -1,0 +1,4 @@
+ATLAS 4D Component: BALANCE_MONITOR
+Purpose: Real-time Center of Mass (CoM) & Zero Moment Point (ZMP)
+Status: Active
+Resolution: 640x360 @ 15 FPS

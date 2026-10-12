@@ -1,0 +1,4 @@
+ATLAS 4D Component: TASK_PLANNER
+Purpose: 8-Step FSM Status, Precondition & Transition Pipeline
+Status: Active
+Resolution: 640x360 @ 15 FPS

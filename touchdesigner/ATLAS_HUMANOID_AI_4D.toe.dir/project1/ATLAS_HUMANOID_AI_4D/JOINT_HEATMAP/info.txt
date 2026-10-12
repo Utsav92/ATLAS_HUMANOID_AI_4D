@@ -1,0 +1,4 @@
+ATLAS 4D Component: JOINT_HEATMAP
+Purpose: Per-Actuator Torque Saturation & Thermal Effort Monitor
+Status: Active
+Resolution: 640x360 @ 15 FPS

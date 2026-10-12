@@ -1,0 +1,4 @@
+ATLAS 4D Component: DASHBOARD
+Purpose: Unified 640x360 15FPS Telemetry HUD & Diagnostics Display
+Status: Active
+Resolution: 640x360 @ 15 FPS

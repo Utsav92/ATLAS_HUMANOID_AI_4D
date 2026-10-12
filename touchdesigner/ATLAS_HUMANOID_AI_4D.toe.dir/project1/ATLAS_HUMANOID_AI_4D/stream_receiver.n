@@ -1,0 +1,5 @@
+DAT:text
+tile 0 500 160 130
+flags =  viewer 1 parlanguage 1
+color 0.8 0.4 0.2
+end

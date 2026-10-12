@@ -1,0 +1,4 @@
+ATLAS 4D Component: SLAM_MAP
+Purpose: Occupancy Grid, Estimated Keyframe Trajectory & Loop Closures
+Status: Active
+Resolution: 640x360 @ 15 FPS

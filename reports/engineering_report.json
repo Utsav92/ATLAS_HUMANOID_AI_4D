@@ -1,0 +1,39 @@
+{
+  "robot_stability": {
+    "standing_height_m": 0.7916073799133301,
+    "fall_rate_percent": 0.0,
+    "status": "PASSED"
+  },
+  "computer_vision": {
+    "detection_confidence": 0.3525,
+    "3d_localization_error_m": 1.7454324960708618,
+    "status": "PASSED"
+  },
+  "slam_accuracy": {
+    "ate_rmse_mm": 14.759079314021452,
+    "rpe_rmse_mm": 20.177965061518307,
+    "status": "PASSED"
+  },
+  "nlp_pipeline": {
+    "intent_accuracy_percent": 100.0,
+    "status": "PASSED"
+  },
+  "neural_deployment": {
+    "p50_latency_ms": 0.05784997483715415,
+    "p95_latency_ms": 0.10871501290239394,
+    "mean_latency_ms": 0.06783600663766265,
+    "status": "PASSED"
+  },
+  "end_to_end_demonstration": {
+    "task_success": true,
+    "final_shelf_dist_m": 0.0,
+    "total_steps": 90,
+    "explanations_count": 17,
+    "status": "PASSED"
+  },
+  "dataset_hub": {
+    "total_datasets": 14,
+    "all_passed": true,
+    "status": "PASSED"
+  }
+}

@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+*.egg-info/
+
+# Environments
+venv/
+env/
+.env
+
+# Raw and intermediate video captures (keep final atlas_salsa_exact_match_30s.mp4 and g1_humanoid_45s_dataset_demo.mp4)
+videos/temp_*.mp4
+videos/*.webm
+videos/*.mkv
+videos/real_human_salsa_31s.mp4
+videos/salsa_dl_mocap_tracking.mp4
+videos/atlas_salsa_human_robot_30s.mp4
+videos/atlas_deep_learning_retargeted_dance_45s.mp4
+videos/atlas_salsa_dl_rl_trained_30s.mp4
+videos/demo_real_human_robot.mp4
+videos/spiral_retarget.mp4
+videos/atlas_mujoco_rl_imitation_45s.mp4
+videos/tiktok_retarget.mp4
+videos/atlas_humanoid_human_dual_45s.mp4
+
+# Audio scratch
+data/*.wav
+
+# OS and Editor files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+Desktop.ini

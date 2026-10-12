@@ -1,0 +1,4 @@
+ATLAS 4D Component: SKELETON
+Purpose: 29/43 Joint Hierarchical Stick Figure & Wireframe Rig
+Status: Active
+Resolution: 640x360 @ 15 FPS

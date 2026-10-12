@@ -1,0 +1,4 @@
+ATLAS 4D Component: CAMERA_SYSTEM
+Purpose: Head Camera RGB-D View, Frustum Projection & Depth Feed
+Status: Active
+Resolution: 640x360 @ 15 FPS

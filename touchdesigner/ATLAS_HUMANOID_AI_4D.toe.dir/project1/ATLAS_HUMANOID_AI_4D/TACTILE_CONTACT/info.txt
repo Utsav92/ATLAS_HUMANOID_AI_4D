@@ -1,0 +1,4 @@
+ATLAS 4D Component: TACTILE_CONTACT
+Purpose: GelSight Surface Deformation & MuJoCo Contact Proxy
+Status: Active
+Resolution: 640x360 @ 15 FPS

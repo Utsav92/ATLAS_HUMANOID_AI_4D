@@ -1,0 +1,4 @@
+ATLAS 4D Component: POLICY_MONITOR
+Purpose: PPO Action Probabilities, Value Function & Safety Overrides
+Status: Active
+Resolution: 640x360 @ 15 FPS

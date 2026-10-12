@@ -1,0 +1,4 @@
+ATLAS 4D Component: POINT_CLOUD
+Purpose: Depth Back-Projected 3D Point Cloud (2000 points max)
+Status: Active
+Resolution: 640x360 @ 15 FPS

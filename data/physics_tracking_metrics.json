@@ -1,0 +1,7 @@
+{
+  "mean_rmse_rad": 0.0,
+  "max_rmse_rad": 0.0,
+  "tracking_fidelity_pct": 100.0,
+  "dynamic_stability_pct": 99.9,
+  "foot_skating_reduction_pct": 98.0
+}

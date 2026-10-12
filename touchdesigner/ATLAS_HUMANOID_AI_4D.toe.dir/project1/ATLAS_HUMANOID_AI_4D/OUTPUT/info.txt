@@ -1,0 +1,4 @@
+ATLAS 4D Component: OUTPUT
+Purpose: Final Composite Out TOP & TouchDesigner Window Placement
+Status: Active
+Resolution: 640x360 @ 15 FPS
