@@ -24,6 +24,15 @@ def main():
     rob_lms[:, :, 1] = lms[:, :, 0]
     rob_lms[:, :, 2] = -lms[:, :, 1]
 
+    # Clean up frames where tracking was lost / uninitialized
+    norms = np.linalg.norm(rob_lms, axis=(1, 2))
+    bad_frames = np.where(norms < 2.0)[0]
+    if len(bad_frames) > 0:
+        valid_frames = np.where(norms >= 2.0)[0]
+        for b in bad_frames:
+            nearest = valid_frames[np.argmin(np.abs(valid_frames - b))]
+            rob_lms[b] = rob_lms[nearest]
+
     # Clean up occluded arm landmarks where arm length < 0.20m
     for side, s_idx, w_idx in [('L', 11, 15), ('R', 12, 16)]:
         lens = np.linalg.norm(rob_lms[:, w_idx] - rob_lms[:, s_idx], axis=-1)
@@ -93,16 +102,16 @@ def main():
         lean_up = v_torso[2]
         theta_lean = np.arctan2(lean_fwd, lean_up)
 
-        # Pelvis pitch vs Waist pitch (for deep dive/bow at t=7.2s)
-        if theta_lean > 0.35:
-            pelvis_pitch = theta_lean - 0.35
-            waist_pitch = 0.35
-        elif theta_lean < -0.30:
-            pelvis_pitch = theta_lean + 0.30
-            waist_pitch = -0.30
+        # Pelvis pitch vs Waist pitch:
+        # Deep dive ONLY during choreographic window (6.8s <= t <= 7.6s)
+        t_sec = i / 300.0
+        if 6.8 <= t_sec <= 7.6:
+            w_dive = 1.0 if (7.0 <= t_sec <= 7.4) else 0.5 * (1.0 - np.cos(np.pi * (t_sec - 6.8) / 0.2 if t_sec < 7.0 else np.pi * (7.6 - t_sec) / 0.2))
+            pelvis_pitch = w_dive * max(0.0, theta_lean - 0.35)
+            waist_pitch = 0.35 * w_dive + np.clip(theta_lean, -0.45, 0.45) * (1 - w_dive)
         else:
             pelvis_pitch = 0.0
-            waist_pitch = theta_lean
+            waist_pitch = np.clip(theta_lean, -0.45, 0.45)
 
         # Pelvis Quaternion (Rz(yaw) * Ry(pitch))
         cy, sy = np.cos(psi / 2.0), np.sin(psi / 2.0)
@@ -138,8 +147,37 @@ def main():
         q_traj[i, 19] = np.clip(twist * 1.10, -0.80, 0.80) # waist yaw
 
         # ---------------------------------------------------------------------
-        # LEGS: 3D ANATOMICAL MAPPING & CROUCH ARTICULATION
+        # LEGS: 3D ANATOMICAL MAPPING & CLEAN SALSA DANCE ARTICULATION
         # ---------------------------------------------------------------------
+        # Out-of-frame leg detection & pattern synthesis:
+        # When dancer is cropped (waist-up/medium shot), MediaPipe places hallucinated
+        # knee/ankle joints at the bottom edge of the frame, causing artificial extreme
+        # knee flexion (up to 150 deg) which makes the robot collapse onto its shins.
+        # We detect out-of-frame frames using measured leg length and video crop timing,
+        # and synthesize clean, upright, poised salsa bounce articulation.
+        
+        t_sec = i / 300.0
+        leg_len_l = np.linalg.norm(lm[27] - lm[23])
+        leg_len_r = np.linalg.norm(lm[28] - lm[24])
+        mean_leg_len = 0.5 * (leg_len_l + leg_len_r)
+
+        # Salsa rhythmic beat pattern (187.5 BPM -> 0.320s per beat)
+        beat_phase = (t_sec / 0.320) * np.pi
+        bounce_kn = 0.22 + 0.12 * abs(np.sin(beat_phase))
+        w_shift = np.clip(root_y[i] * 3.0, -1.0, 1.0)
+
+        # Smooth weight for out-of-frame reconstruction
+        if t_sec < 5.6:
+            w_crop = 1.0
+        elif t_sec < 6.4:
+            w_crop = 0.5 * (1.0 + np.cos(np.pi * (t_sec - 5.6) / 0.8))
+        elif 17.5 <= t_sec <= 22.0:
+            w_crop = 0.85
+        elif mean_leg_len < 0.62:
+            w_crop = np.clip((0.65 - mean_leg_len) / 0.10, 0.0, 0.85)
+        else:
+            w_crop = 0.0
+
         for side, hp_i, kn_i, ak_i, q_hp_p, q_hp_r, q_hp_y, q_kn, q_ak_p, q_ak_r in [
             ('L', 23, 25, 27, 7, 8, 9, 10, 11, 12),
             ('R', 24, 26, 28, 13, 14, 15, 16, 17, 18)
@@ -150,23 +188,44 @@ def main():
             v_shin /= (np.linalg.norm(v_shin) + 1e-6)
 
             cos_kn = np.clip(np.dot(v_thigh, v_shin), -1.0, 1.0)
-            bend_kn = np.arccos(cos_kn)
-            q_traj[i, q_kn] = np.clip(bend_kn, 0.05, 2.80)
+            bend_kn_raw = np.arccos(cos_kn)
 
+            # Clean dance knee flexion limit:
+            # Maximum knee flexion in salsa: 0.85 rad (48 deg) for lunges, 0.55 rad (31 deg) normal
+            is_lunge = (12.5 <= t_sec <= 14.0)
+            max_knee = 0.85 if is_lunge else 0.55
+            bend_kn_meas = np.clip(bend_kn_raw, 0.12, max_knee)
+
+            # Synthesized clean salsa bounce for cropped frames
+            kn_synth = np.clip(bounce_kn - (0.08 if side == 'L' else -0.08) * w_shift, 0.15, 0.45)
+
+            # Blended knee flexion
+            bend_kn = (1.0 - w_crop) * bend_kn_meas + w_crop * kn_synth
+            q_traj[i, q_kn] = bend_kn
+
+            # Thigh in pelvis local frame
             v_thigh_loc = R_pelvis.T @ v_thigh
-            hp_pitch = -np.arctan2(v_thigh_loc[0], -v_thigh_loc[2] + 1e-6)
-            # Compensate for pelvis pitch on standing legs
-            hp_pitch += pelvis_pitch
+            hp_pitch_meas = -np.arctan2(v_thigh_loc[0], -v_thigh_loc[2] + 1e-6) - pelvis_pitch
+            hp_pitch_synth = -bend_kn * 0.50 - pelvis_pitch
+            hp_pitch = (1.0 - w_crop) * np.clip(hp_pitch_meas, -1.8, 0.40) + w_crop * hp_pitch_synth
 
             if side == 'L':
-                hp_roll = np.arctan2(v_thigh_loc[1], -v_thigh_loc[2] + 1e-6)
+                hp_roll_meas = np.arctan2(v_thigh_loc[1], -v_thigh_loc[2] + 1e-6)
+                hp_roll_synth = root_y[i] * 0.40
             else:
-                hp_roll = -np.arctan2(-v_thigh_loc[1], -v_thigh_loc[2] + 1e-6)
+                hp_roll_meas = -np.arctan2(-v_thigh_loc[1], -v_thigh_loc[2] + 1e-6)
+                hp_roll_synth = -root_y[i] * 0.40
 
-            q_traj[i, q_hp_p] = np.clip(hp_pitch, -2.5, 1.5)
-            q_traj[i, q_hp_r] = np.clip(hp_roll, -0.5, 1.5 if side == 'L' else 0.5)
+            hp_roll = (1.0 - w_crop) * np.clip(hp_roll_meas, -0.40, 0.80 if side == 'L' else 0.40) + w_crop * hp_roll_synth
+
+            q_traj[i, q_hp_p] = hp_pitch
+            q_traj[i, q_hp_r] = hp_roll
             q_traj[i, q_hp_y] = 0.0
-            q_traj[i, q_ak_p] = np.clip(-q_traj[i, q_hp_p] - q_traj[i, q_kn] + pelvis_pitch, -0.85, 0.50)
+
+            # Ankle pitch levels the sole with the floor and supports upright balance
+            ak_p_meas = -hp_pitch - bend_kn - pelvis_pitch
+            ak_p_synth = -bend_kn * 0.50
+            q_traj[i, q_ak_p] = np.clip((1.0 - w_crop) * ak_p_meas + w_crop * ak_p_synth, -0.65, 0.35)
             q_traj[i, q_ak_r] = 0.0
 
         # ---------------------------------------------------------------------
@@ -288,6 +347,8 @@ def main():
         z_min_sole = min(z_sole_l, z_sole_r)
         pelvis_z[i] = -z_min_sole
 
+    # Keep pelvis within clean dancing height (poised in standing, accommodates deep dive bow)
+    pelvis_z = np.clip(pelvis_z, 0.50, 0.78)
     pelvis_z_smooth = np.convolve(pelvis_z, np.ones(9)/9.0, mode='same')
     for i in range(N):
         q_test = q_traj[i].copy()
