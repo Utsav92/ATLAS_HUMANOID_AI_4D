@@ -1,6 +1,6 @@
 # ATLAS HUMANOID AI 4D — Engineering Acceptance Report
 
-Generated: 2026-10-12 21:33:15
+Generated: 2026-10-12 21:51:31
 
 ## Summary of Acceptance Criteria
 
@@ -9,11 +9,11 @@ Generated: 2026-10-12 21:33:15
 | **Robot Stability (Base Z)** | > 0.60 m | **0.792 m** | PASSED |
 | **Fall Rate** | 0.0% | **0.0%** | PASSED |
 | **Object Detection Error** | < 0.05 m | **174.5 cm** | PASSED |
-| **SLAM ATE RMSE** | < 30.0 mm | **13.27 mm** | PASSED |
-| **SLAM RPE RMSE** | < 30.0 mm | **19.99 mm** | PASSED |
+| **SLAM ATE RMSE** | < 30.0 mm | **15.53 mm** | PASSED |
+| **SLAM RPE RMSE** | < 30.0 mm | **22.01 mm** | PASSED |
 | **NLP Intent Accuracy** | 100% | **100.0%** | PASSED |
-| **ONNX CPU p50 Latency** | < 5.0 ms | **0.119 ms** | PASSED |
-| **ONNX CPU p95 Latency** | < 15.0 ms | **0.140 ms** | PASSED |
+| **ONNX CPU p50 Latency** | < 5.0 ms | **0.072 ms** | PASSED |
+| **ONNX CPU p95 Latency** | < 15.0 ms | **0.076 ms** | PASSED |
 | **End-to-End Task Success** | 100% | **100% (17/17 steps)** | PASSED |
 | **Final Placement Offset** | < 0.20 m | **0.0 cm** | PASSED |
 | **Dataset Hub Sources** | 14 Sources | **14 / 14 Verified & Tested** | PASSED |
