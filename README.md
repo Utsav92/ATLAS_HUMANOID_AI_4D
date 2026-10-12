@@ -118,7 +118,21 @@ python scripts/physics_tracking_controller.py
 
 # 3. Render synchronized side-by-side MuJoCo simulation with audio
 python scripts/render_exact_salsa_mujoco_simulation.py
+
+# 4. Run lifelong self-improving agent (adapts motion the more it plays)
+python scripts/run_self_improving_agent.py --episodes 10 --duration 5.0
 ```
+
+---
+
+## 🔄 Lifelong Self-Improving Motion Agent
+
+The repository features an online, self-improving embodied AI agent ([`atlas/rl/self_improving_agent.py`](atlas/rl/self_improving_agent.py)) that continually optimizes the robot's movement, balance stability, and imitation accuracy the more play time it accumulates:
+
+- **Residual Neural Policy**: Learns continuous fine-grained motor adjustments ($\Delta \pi(s) \in [-0.15, +0.15]\text{ rad}$) on top of nominal joint trajectories.
+- **Motion Quality Critic**: Multi-objective reward evaluator quantifying pose imitation error, upright CoM balance, ground zero-slip contact, and torque smoothness.
+- **Prioritized Lifelong Replay**: Stores physical simulation interactions and selectively samples high-error and high-instability states for targeted gradient improvement.
+- **Persistent Play History**: Saves accumulated play time and performance gains to `data/self_improving_agent_state.json` and `models/self_improving_agent.pt`.
 
 ---
 

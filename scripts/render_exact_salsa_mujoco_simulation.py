@@ -74,6 +74,7 @@ def main():
             m_crop = pad
 
         # 2. Render Right Panel: Robot in MuJoCo with EXACT matching pose from 9000-frame dataset
+        camera.lookat = [float(q_traj[i, 0] * 0.25), float(q_traj[i, 1] * 0.35), float(q_traj[i, 2])]
         data.qpos[:] = q_traj[i]
         mujoco.mj_forward(model, data)
         renderer.update_scene(data, camera=camera)
@@ -160,12 +161,18 @@ def main():
         elif i + 1 == 588: # t=19.60s - Grounded foot & back kick (matching user image)
             cv2.imwrite("evaluation/grounded_foot_kick_t19.png", composite)
             cv2.imwrite(f"{brain_dir}/grounded_foot_kick_t19.png", composite)
+        elif i + 1 == 615: # t=20.50s - Turn 1 (360-degree salsa spin)
+            cv2.imwrite("evaluation/salsa_spin_t20_5.png", composite)
+            cv2.imwrite(f"{brain_dir}/salsa_spin_t20_5.png", composite)
         elif i + 1 == 750: # t=25.0s
             cv2.imwrite("evaluation/9000_match_preview_t25.png", composite)
             cv2.imwrite(f"{brain_dir}/9000_match_preview_t25.png", composite)
         elif i + 1 == 772: # t=25.73s - Peak max spread
             cv2.imwrite("evaluation/arm_spread_max_t25.png", composite)
             cv2.imwrite(f"{brain_dir}/arm_spread_max_t25.png", composite)
+        elif i + 1 == 795: # t=26.50s - Turn 2 (360-degree salsa spin)
+            cv2.imwrite("evaluation/salsa_spin_t26_5.png", composite)
+            cv2.imwrite(f"{brain_dir}/salsa_spin_t26_5.png", composite)
 
         if (i + 1) % 150 == 0:
             print(f"Rendered {i+1}/{TOTAL_FRAMES} frames ({((i+1)/TOTAL_FRAMES)*100:.1f}%)...")
@@ -191,6 +198,11 @@ def main():
     # Clean up temp
     if os.path.exists(temp_composite_path):
         os.remove(temp_composite_path)
+
+    # Copy to user Downloads
+    downloads_path = r"C:\Users\Utsav\Downloads\atlas_salsa_exact_match_30s.mp4"
+    shutil.copy(final_output_path, downloads_path)
+    print(f"Copied updated video to {downloads_path}!")
 
     # Update TouchDesigner assets
     shutil.copy(final_output_path, r"videos/g1_humanoid_45s_dataset_demo.mp4")

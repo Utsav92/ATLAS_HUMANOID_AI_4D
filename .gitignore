@@ -35,3 +35,10 @@ data/*.wav
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Scratch and temporary evaluation captures
+scratch/
+temp_knee_check/
+crop_user_*.png
+test_perfect_knee_lift_pose.png
+models/*.task
