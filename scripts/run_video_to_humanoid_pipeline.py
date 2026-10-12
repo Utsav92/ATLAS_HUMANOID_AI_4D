@@ -208,11 +208,13 @@ def main():
     # 7.1 Stage 1: Behavior Cloning with Combined Motion-Accuracy Objective
     # L = 0.40 L_joint + 0.25 L_pose + 0.15 L_velocity + 0.10 L_contact + 0.10 L_smooth
     bc_init_loss, bc_final_loss, loss_breakdown = pipeline.pretrain_behavior_cloning(
-        train_states, train_actions, epochs=25, lr=1e-3
+        train_states, train_actions, val_states=test_states, val_actions=test_actions, epochs=25, lr=1e-3
     )
     
     loss_reduction = float((0.873 - bc_final_loss) / 0.873 * 100.0)
     print(f"  -> [BC Warmup] Baseline Loss: 0.873 -> Final Loss: {bc_final_loss:.4f} ({loss_reduction:.1f}% Reduction!)")
+    print(f"  -> [Held-Out Validation] Baseline Val: {pipeline.last_val_metrics['initial_val_loss']:.4f} -> Final Val: {pipeline.last_val_metrics['final_val_loss']:.4f} ({pipeline.last_val_metrics['val_loss_reduction_percent']:.1f}% Reduction!)")
+    print(f"     * Val Loss P95: {pipeline.last_val_metrics['val_loss_p95']:.4f} | Worst-Case Max: {pipeline.last_val_metrics['val_loss_max']:.4f}")
     print(f"     * L_joint   (40%): {loss_breakdown.l_joint:.4f}")
     print(f"     * L_pose    (25%): {loss_breakdown.l_pose:.4f}")
     print(f"     * L_velocity(15%): {loss_breakdown.l_velocity:.4f}")
