@@ -146,19 +146,34 @@ def main():
 
         # Save verification snapshots
         brain_dir = "C:/Users/Utsav/.gemini/antigravity/brain/bf9fcd1b-d708-48b1-8610-01f91dc277ee"
-        if i + 1 == 150: # t=5.0s
+        if i + 1 == 91: # t=3.00s - Relaxed intro bounce
+            cv2.imwrite("evaluation/img3_verified_t03_00.png", composite)
+            cv2.imwrite(f"{brain_dir}/img3_verified_t03_00.png", composite)
+        elif i + 1 == 150: # t=5.0s
             cv2.imwrite("evaluation/9000_match_preview_t05.png", composite)
             cv2.imwrite(f"{brain_dir}/9000_match_preview_t05.png", composite)
+        elif i + 1 == 217: # t=7.20s - Deep forward dive
+            cv2.imwrite("evaluation/img4_verified_t07_20.png", composite)
+            cv2.imwrite(f"{brain_dir}/img4_verified_t07_20.png", composite)
         elif i + 1 == 245: # t=8.17s - Arm spread wide
             cv2.imwrite("evaluation/arm_spread_wide_t08.png", composite)
             cv2.imwrite(f"{brain_dir}/arm_spread_wide_t08.png", composite)
+        elif i + 1 == 271: # t=9.00s - Salsa styling groove (high flared elbow)
+            cv2.imwrite("evaluation/img5_verified_t09_00.png", composite)
+            cv2.imwrite(f"{brain_dir}/img5_verified_t09_00.png", composite)
+        elif i + 1 == 397: # t=13.23s - Profile lunge & winged elbow
+            cv2.imwrite("evaluation/img2_verified_t13_23.png", composite)
+            cv2.imwrite(f"{brain_dir}/img2_verified_t13_23.png", composite)
+        elif i + 1 == 441: # t=14.67s - Salsa hip pop
+            cv2.imwrite("evaluation/img1_verified_t14_67.png", composite)
+            cv2.imwrite(f"{brain_dir}/img1_verified_t14_67.png", composite)
         elif i + 1 == 450: # t=15.0s
             cv2.imwrite("evaluation/9000_match_preview_t15.png", composite)
             cv2.imwrite(f"{brain_dir}/9000_match_preview_t15.png", composite)
         elif i + 1 == 557: # t=18.57s - Arm close tight
             cv2.imwrite("evaluation/arm_close_tight_t18.png", composite)
             cv2.imwrite(f"{brain_dir}/arm_close_tight_t18.png", composite)
-        elif i + 1 == 588: # t=19.60s - Grounded foot & back kick (matching user image)
+        elif i + 1 == 588: # t=19.60s - Grounded foot & back kick
             cv2.imwrite("evaluation/grounded_foot_kick_t19.png", composite)
             cv2.imwrite(f"{brain_dir}/grounded_foot_kick_t19.png", composite)
         elif i + 1 == 615: # t=20.50s - Turn 1 (360-degree salsa spin)

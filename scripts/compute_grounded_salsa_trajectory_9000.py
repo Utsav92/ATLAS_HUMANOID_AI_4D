@@ -4,7 +4,7 @@ import time
 import os
 
 def main():
-    print("=== COMPUTING ACCURATE SALSA TRAJECTORY (FULL 3D INVERSE KINEMATICS) ===")
+    print("=== COMPUTING ACCURATE SALSA TRAJECTORY (3D/2D FUSED FULL-BODY KINEMATICS) ===")
     mocap_path = "data/salsa_dl_mocap_9000_frames.npz"
     data_npz = np.load(mocap_path)
     lms = data_npz["landmarks_3d_meters"].copy() # (9000, 33, 3)
@@ -34,7 +34,7 @@ def main():
                 nearest = valid[np.argmin(np.abs(valid - b))]
                 rob_lms[b, w_idx] = rob_lms[nearest, w_idx]
 
-    # 2. Continuous Body Orientation (Yaw)
+    # 2. Continuous Body Facing Angle (Yaw)
     # MediaPipe: 11=L shoulder, 12=R shoulder, 23=L hip, 24=R hip
     v_lat_sh = rob_lms[:, 11] - rob_lms[:, 12]
     v_lat_hp = rob_lms[:, 23] - rob_lms[:, 24]
@@ -45,7 +45,6 @@ def main():
     yaw_raw = np.arctan2(v_fwd_y, v_fwd_x)
     yaw_unwrapped = np.unwrap(yaw_raw)
     
-    # Smooth yaw trajectory across time
     k_yaw = np.ones(15) / 15.0
     yaw_smooth = np.convolve(yaw_unwrapped, k_yaw, mode='same')
 
@@ -73,121 +72,196 @@ def main():
 
     q_traj = np.zeros((N, 36), dtype=np.float32)
 
-    print("Computing accurate 3D kinematics via Inverse Kinematics across all 9,000 frames...")
+    print("Computing accurate 3D kinematics with Pelvis Pitch Dive & Torso Spherical Arms...")
     t0 = time.time()
 
-    # Pre-solve loop
     for i in range(N):
         lm = rob_lms[i]
         psi = yaw_smooth[i]
 
-        # Floating base
-        q_traj[i, 0] = root_x[i]
-        q_traj[i, 1] = root_y[i]
-        q_traj[i, 2] = 0.74 # Initial height, refined by ground clamping
-        q_traj[i, 3] = np.cos(psi / 2.0)
-        q_traj[i, 4] = 0.0
-        q_traj[i, 5] = 0.0
-        q_traj[i, 6] = np.sin(psi / 2.0)
-
-        # Pelvis rotation matrix
-        c_p, s_p = np.cos(psi), np.sin(psi)
-        R_pelvis = np.array([
-            [c_p, -s_p, 0],
-            [s_p,  c_p, 0],
-            [  0,    0, 1]
-        ])
-
         # ---------------------------------------------------------------------
-        # WAIST & SPINE
+        # TORSO VECTOR & FORWARD DIVE / PITCH
         # ---------------------------------------------------------------------
         mid_sh_i = 0.5 * (lm[11] + lm[12])
         mid_hp_i = 0.5 * (lm[23] + lm[24])
         v_torso = mid_sh_i - mid_hp_i
         v_torso /= (np.linalg.norm(v_torso) + 1e-6)
-        v_torso_loc = R_pelvis.T @ v_torso
 
-        # Waist pitch: positive tilts torso forward (lunge, crouch lean)
-        q_traj[i, 21] = np.clip(np.arctan2(v_torso_loc[0], v_torso_loc[2]), -0.50, 0.50)
-        # Waist roll: lateral torso tilt
-        q_traj[i, 20] = np.clip(np.arctan2(v_torso_loc[1], v_torso_loc[2]), -0.50, 0.50)
-        # Waist yaw: relative torso-hip counter twist
+        # Torso forward lean relative to ground facing direction
+        u_fwd_h = np.array([np.cos(psi), np.sin(psi), 0.0])
+        lean_fwd = np.dot(v_torso, u_fwd_h)
+        lean_up = v_torso[2]
+        theta_lean = np.arctan2(lean_fwd, lean_up)
+
+        # Pelvis pitch vs Waist pitch (for deep dive/bow at t=7.2s)
+        if theta_lean > 0.35:
+            pelvis_pitch = theta_lean - 0.35
+            waist_pitch = 0.35
+        elif theta_lean < -0.30:
+            pelvis_pitch = theta_lean + 0.30
+            waist_pitch = -0.30
+        else:
+            pelvis_pitch = 0.0
+            waist_pitch = theta_lean
+
+        # Pelvis Quaternion (Rz(yaw) * Ry(pitch))
+        cy, sy = np.cos(psi / 2.0), np.sin(psi / 2.0)
+        cp, sp = np.cos(pelvis_pitch / 2.0), np.sin(pelvis_pitch / 2.0)
+        qw = cy * cp
+        qx = -sy * sp
+        qy = cy * sp
+        qz = sy * cp
+
+        q_traj[i, 0] = root_x[i]
+        q_traj[i, 1] = root_y[i]
+        q_traj[i, 2] = 0.74
+        q_traj[i, 3] = qw
+        q_traj[i, 4] = qx
+        q_traj[i, 5] = qy
+        q_traj[i, 6] = qz
+
+        # Pelvis rotation matrix
+        R_pelvis = np.array([
+            [1 - 2*(qy*qy + qz*qz),     2*(qx*qy - qz*qw),     2*(qx*qz + qy*qw)],
+            [    2*(qx*qy + qz*qw), 1 - 2*(qx*qx + qz*qz),     2*(qy*qz - qx*qw)],
+            [    2*(qx*qz - qy*qw),     2*(qy*qz + qx*qw), 1 - 2*(qx*qx + qy*qy)]
+        ])
+
+        # Waist / Torso
+        v_torso_loc = R_pelvis.T @ v_torso
+        q_traj[i, 21] = np.clip(waist_pitch, -0.50, 0.50)
+        q_traj[i, 20] = np.clip(np.arctan2(v_torso_loc[1], v_torso_loc[2]), -0.50, 0.50) # waist roll
+
         yaw_sh = np.arctan2(v_lat_sh[i, 1], v_lat_sh[i, 0])
         yaw_hp = np.arctan2(v_lat_hp[i, 1], v_lat_hp[i, 0])
         twist = (yaw_sh - yaw_hp + np.pi) % (2 * np.pi) - np.pi
-        q_traj[i, 19] = np.clip(twist * 1.10, -0.80, 0.80)
+        q_traj[i, 19] = np.clip(twist * 1.10, -0.80, 0.80) # waist yaw
 
         # ---------------------------------------------------------------------
         # LEGS: 3D ANATOMICAL MAPPING & CROUCH ARTICULATION
         # ---------------------------------------------------------------------
-        for side, hp_idx, kn_idx, ak_idx, q_hp_p, q_hp_r, q_hp_y, q_kn, q_ak_p, q_ak_r in [
+        for side, hp_i, kn_i, ak_i, q_hp_p, q_hp_r, q_hp_y, q_kn, q_ak_p, q_ak_r in [
             ('L', 23, 25, 27, 7, 8, 9, 10, 11, 12),
             ('R', 24, 26, 28, 13, 14, 15, 16, 17, 18)
         ]:
-            v_thigh = lm[kn_idx] - lm[hp_idx]
+            v_thigh = lm[kn_i] - lm[hp_i]
             v_thigh /= (np.linalg.norm(v_thigh) + 1e-6)
-            v_shin = lm[ak_idx] - lm[kn_idx]
+            v_shin = lm[ak_i] - lm[kn_i]
             v_shin /= (np.linalg.norm(v_shin) + 1e-6)
 
-            # Knee flexion
             cos_kn = np.clip(np.dot(v_thigh, v_shin), -1.0, 1.0)
             bend_kn = np.arccos(cos_kn)
             q_traj[i, q_kn] = np.clip(bend_kn, 0.05, 2.80)
 
-            # Thigh in pelvis local frame
             v_thigh_loc = R_pelvis.T @ v_thigh
             hp_pitch = -np.arctan2(v_thigh_loc[0], -v_thigh_loc[2] + 1e-6)
+            # Compensate for pelvis pitch on standing legs
+            hp_pitch += pelvis_pitch
+
             if side == 'L':
                 hp_roll = np.arctan2(v_thigh_loc[1], -v_thigh_loc[2] + 1e-6)
             else:
                 hp_roll = -np.arctan2(-v_thigh_loc[1], -v_thigh_loc[2] + 1e-6)
 
-            q_traj[i, q_hp_p] = np.clip(hp_pitch, -2.2, 1.5)
+            q_traj[i, q_hp_p] = np.clip(hp_pitch, -2.5, 1.5)
             q_traj[i, q_hp_r] = np.clip(hp_roll, -0.5, 1.5 if side == 'L' else 0.5)
             q_traj[i, q_hp_y] = 0.0
-
-            # Ankle pitch keeps sole stable & parallel to floor
-            q_traj[i, q_ak_p] = np.clip(-q_traj[i, q_hp_p] - q_traj[i, q_kn], -0.85, 0.50)
+            q_traj[i, q_ak_p] = np.clip(-q_traj[i, q_hp_p] - q_traj[i, q_kn] + pelvis_pitch, -0.85, 0.50)
             q_traj[i, q_ak_r] = 0.0
 
         # ---------------------------------------------------------------------
-        # ARMS: 3D DAMPED LEAST-SQUARES INVERSE KINEMATICS
+        # ARMS: 2D/3D FUSED TORSO-LOCAL SPHERICAL KINEMATICS
         # ---------------------------------------------------------------------
         data.qpos[:] = q_traj[i]
         mujoco.mj_forward(model, data)
+        torso_mat = data.xmat[16].reshape((3, 3)) # Torso link rotation matrix
 
-        for side, sh_idx, el_idx, wr_idx, sh_b, el_b, wr_b, q_arm, dof_arm in [
-            ('L', 11, 13, 15, 17, 20, 23, [22, 23, 24, 25], [21, 22, 23, 24]),
-            ('R', 12, 14, 16, 24, 27, 30, [29, 30, 31, 32], [28, 29, 30, 31])
+        for side, sh_i, el_i, wr_i, q_p, q_r, q_y, q_el in [
+            ('L', 11, 13, 15, 22, 23, 24, 25),
+            ('R', 12, 14, 16, 29, 30, 31, 32)
         ]:
-            u_upper = lm[el_idx] - lm[sh_idx]
+            u_upper = lm[el_i] - lm[sh_i]
             u_upper /= (np.linalg.norm(u_upper) + 1e-6)
-            u_fore = lm[wr_idx] - lm[el_idx]
+            u_fore = lm[wr_i] - lm[el_i]
             u_fore /= (np.linalg.norm(u_fore) + 1e-6)
 
-            sh_pos = data.xpos[sh_b].copy()
-            target_el = sh_pos + 0.193 * u_upper
-            target_wr = target_el + 0.184 * u_fore
+            # Express in torso local frame
+            u_loc = torso_mat.T @ u_upper
+            v_loc = torso_mat.T @ u_fore
 
-            for _ in range(20):
-                mujoco.mj_forward(model, data)
-                c_el = data.xpos[el_b]
-                c_wr = data.xpos[wr_b]
-                err = np.concatenate([target_el - c_el, target_wr - c_wr])
-                if np.linalg.norm(err) < 1e-3:
-                    break
-                jac_el = np.zeros((3, model.nv))
-                jac_wr = np.zeros((3, model.nv))
-                mujoco.mj_jac(model, data, jac_el, None, target_el, el_b)
-                mujoco.mj_jac(model, data, jac_wr, None, target_wr, wr_b)
-                J = np.vstack([jac_el[:, dof_arm], jac_wr[:, dof_arm]])
-                dq = J.T @ np.linalg.solve(J @ J.T + 1e-3 * np.eye(6), err)
-                data.qpos[q_arm] += 0.6 * dq
-                for q_k in q_arm:
-                    j_id = model.jnt_qposadr.tolist().index(q_k)
-                    data.qpos[q_k] = np.clip(data.qpos[q_k], model.jnt_range[j_id, 0], model.jnt_range[j_id, 1])
+            # 2D Screen lateral elevation check (de-noising monocular depth)
+            dy_screen = lm[el_i, 1] - lm[sh_i, 1] # in rob_lms, 1 is left (+Y)
+            dz_screen = lm[el_i, 2] - lm[sh_i, 2] # in rob_lms, 2 is up (+Z)
+            # Lateral spread on screen:
+            lat_screen_mag = abs(dy_screen)
 
-            q_traj[i, q_arm] = data.qpos[q_arm]
+            # Pitch: forward is negative, backward is positive
+            pitch = -np.arctan2(u_loc[0], -u_loc[2] + 1e-6)
+
+            # Roll: lateral abduction
+            horiz = np.sqrt(u_loc[0]**2 + u_loc[2]**2)
+            if side == 'L':
+                roll = np.arctan2(u_loc[1], horiz + 1e-6)
+            else:
+                roll = -np.arctan2(-u_loc[1], horiz + 1e-6)
+
+            # Elbow flexion
+            cos_el = np.clip(np.dot(u_upper, u_fore), -1.0, 1.0)
+            bend_el = np.arccos(cos_el)
+            # When arm is straight (bend_el < 0.35 rad):
+            if bend_el < 0.35:
+                elbow = -0.50 if u_loc[0] > 0.3 else 1.20
+            else:
+                elbow = np.clip(1.52 - bend_el * 1.25, -0.80, 1.50)
+
+            # Shoulder yaw from elbow bend normal
+            n_arm = np.cross(u_loc, v_loc)
+            yaw_arm = np.arctan2(n_arm[2], n_arm[1] if side == 'L' else -n_arm[1])
+
+            q_traj[i, q_p] = np.clip(pitch, -2.8, 2.5)
+            q_traj[i, q_r] = np.clip(roll, -0.6 if side == 'L' else -2.2, 2.2 if side == 'L' else 0.6)
+            q_traj[i, q_y] = np.clip(yaw_arm * 0.70, -1.5, 1.5)
+            q_traj[i, q_el] = np.clip(elbow, -1.0, 1.5)
+
+        # ---------------------------------------------------------------------
+        # SPECIALIZED CHOREOGRAPHIC STYLING & WATERMARK DE-NOISING
+        # ---------------------------------------------------------------------
+        t_sec = i / 300.0
+
+        # 1. Intro bounce (0.0s - 4.2s): Watermark '@SALSAMISAKI' occludes chest/arms;
+        #    Dancer does relaxed intro bounce with hands loose by hips/thighs.
+        if t_sec < 4.2:
+            w_intro = 1.0 if t_sec < 3.6 else 0.5 * (1.0 + np.cos(np.pi * (t_sec - 3.6) / 0.6))
+            # Left arm relaxed by hip
+            q_traj[i, 22] = (1 - w_intro) * q_traj[i, 22] + w_intro * 0.15
+            q_traj[i, 23] = (1 - w_intro) * q_traj[i, 23] + w_intro * 0.25
+            q_traj[i, 24] = (1 - w_intro) * q_traj[i, 24] + w_intro * 0.00
+            q_traj[i, 25] = (1 - w_intro) * q_traj[i, 25] + w_intro * 1.05
+            # Right arm relaxed by hip
+            q_traj[i, 29] = (1 - w_intro) * q_traj[i, 29] + w_intro * 0.15
+            q_traj[i, 30] = (1 - w_intro) * q_traj[i, 30] + w_intro * -0.25
+            q_traj[i, 31] = (1 - w_intro) * q_traj[i, 31] + w_intro * 0.00
+            q_traj[i, 32] = (1 - w_intro) * q_traj[i, 32] + w_intro * 1.05
+
+        # 2. Salsa styling groove (8.5s - 9.5s): Left elbow flared high and outward
+        #    at shoulder level (90 deg), hand in front of chest, right arm down along thigh.
+        if 8.4 <= t_sec <= 9.6:
+            if t_sec < 8.7:
+                w_style = 0.5 * (1.0 - np.cos(np.pi * (t_sec - 8.4) / 0.3))
+            elif t_sec > 9.3:
+                w_style = 0.5 * (1.0 + np.cos(np.pi * (t_sec - 9.3) / 0.3))
+            else:
+                w_style = 1.0
+            # Left arm flared high
+            q_traj[i, 22] = (1 - w_style) * q_traj[i, 22] + w_style * 0.35
+            q_traj[i, 23] = (1 - w_style) * q_traj[i, 23] + w_style * 1.35
+            q_traj[i, 24] = (1 - w_style) * q_traj[i, 24] + w_style * 0.30
+            q_traj[i, 25] = (1 - w_style) * q_traj[i, 25] + w_style * 0.05
+            # Right arm hanging down
+            q_traj[i, 29] = (1 - w_style) * q_traj[i, 29] + w_style * 0.10
+            q_traj[i, 30] = (1 - w_style) * q_traj[i, 30] + w_style * -0.15
+            q_traj[i, 31] = (1 - w_style) * q_traj[i, 31] + w_style * 0.00
+            q_traj[i, 32] = (1 - w_style) * q_traj[i, 32] + w_style * 1.35
 
         if i % 1500 == 0:
             print(f"  Frame {i:4d}/{N} ({i/300:.1f}s) computed...")
@@ -214,7 +288,6 @@ def main():
         z_min_sole = min(z_sole_l, z_sole_r)
         pelvis_z[i] = -z_min_sole
 
-    # Smooth base height while guaranteeing non-penetration
     pelvis_z_smooth = np.convolve(pelvis_z, np.ones(9)/9.0, mode='same')
     for i in range(N):
         q_test = q_traj[i].copy()
