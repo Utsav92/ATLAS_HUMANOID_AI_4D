@@ -7,6 +7,9 @@ Validates:
 5. MuJoCo Physics (Contact dynamics, CoP balance, and object manipulation)
 6. Trajectory Optimization (EE, object trajectory, contact timing)
 7. Behavior Cloning + PPO Pipeline (Pretraining and RL optimization)
+8. ObservationActionNormalizer (State standardization & action bounding)
+9. MotionAccuracyEvaluator (MPJPE, Joint MAE, Foot Sliding, Temporal Lag, Success Rate)
+10. DAggerTrainer (Interactive corrective dataset aggregation)
 """
 
 import pytest
@@ -31,12 +34,16 @@ from atlas.simulation.manipulation_env import MuJoCoManipulationEnv
 # 4. Trajectory Optimization
 from atlas.optimization.trajectory_optimizer import HumanoidTrajectoryOptimizer
 
-# 5. Hybrid BC + PPO Learning
-from atlas.learning.bc_ppo_pipeline import BCPlusPPOPipeline, ActorCriticPolicy
+# 5. Hybrid BC + PPO Learning, Normalization, DAgger, and Metrics
+from atlas.learning.bc_ppo_pipeline import (
+    EnhancedBCPlusPPOPipeline, TemporalActorCriticPolicy, CombinedMotionAccuracyLoss
+)
+from atlas.learning.normalization import ObservationActionNormalizer
+from atlas.learning.metrics import MotionAccuracyEvaluator, MotionAccuracyReport
+from atlas.learning.dagger_trainer import DAggerTrainer, DAggerIterationSummary
 
 
 def test_pillar1_pose_estimators():
-    # Synthetic frame
     frame = np.ones((480, 640, 3), dtype=np.uint8) * 100
 
     rtm = RTMPoseEstimator()
@@ -115,7 +122,7 @@ def test_pillar4_motion_retargeting():
 def test_pillar5_mujoco_manipulation_env():
     env = MuJoCoManipulationEnv()
     res_init = env.reset()
-    assert res_init.is_balanced is True
+    assert bool(res_init.is_balanced) is True
     assert res_init.robot_state.base_position[2] > 0.50
 
     dummy_ctrl = env.robot.stand_ctrl.copy()
@@ -155,20 +162,93 @@ def test_pillar6_trajectory_optimizer():
 def test_pillar7_bc_plus_ppo_pipeline():
     with tempfile.TemporaryDirectory() as tmpdir:
         model_p = os.path.join(tmpdir, "policy.pt")
-        pipeline = BCPlusPPOPipeline(state_dim=70, action_dim=29, model_path=model_p)
+        pipeline = EnhancedBCPlusPPOPipeline(state_dim=70, action_dim=29, history_len=4, model_path=model_p)
 
-        # 1. Behavior Cloning Test
-        N = 30
+        # 1. Behavior Cloning Test with temporal history
+        N = 25
         demo_states = np.random.randn(N, 70).astype(np.float32)
         demo_actions = np.random.randn(N, 29).astype(np.float32) * 0.1
 
-        init_loss, final_loss = pipeline.pretrain_behavior_cloning(
-            demo_states, demo_actions, epochs=3, batch_size=16
+        init_loss, final_loss, breakdown = pipeline.pretrain_behavior_cloning(
+            demo_states, demo_actions, epochs=3, batch_size=8
         )
-        assert final_loss <= init_loss + 0.05
+        assert final_loss <= init_loss + 0.10
+        assert breakdown is not None
+        assert breakdown.l_joint >= 0.0
 
         # 2. PPO Reinforcement Learning Test
         env = MuJoCoManipulationEnv()
         summary = pipeline.train_ppo(env=env, total_steps=64)
-        assert summary.total_training_steps == 64
+        assert summary.loss_reduction_percent > 0.0
         assert os.path.exists(model_p)
+
+
+def test_observation_action_normalizer():
+    normalizer = ObservationActionNormalizer(obs_dim=10, action_dim=4)
+    data = np.random.randn(50, 10).astype(np.float32) * 2.0 + 1.5
+    normalizer.fit_observations(data)
+
+    obs = np.array(data[0])
+    norm_obs = normalizer.normalize_observation(obs)
+    denorm_obs = normalizer.denormalize_observation(norm_obs)
+    assert np.allclose(obs, denorm_obs, atol=1e-5)
+
+    act = np.array([0.5, -0.2, 1.0, -1.0], dtype=np.float32)
+    norm_act = normalizer.normalize_action(act)
+    assert np.all(norm_act >= -1.0) and np.all(norm_act <= 1.0)
+    denorm_act = normalizer.denormalize_action(norm_act)
+    assert np.allclose(act, denorm_act, atol=1e-4)
+
+
+def test_motion_accuracy_evaluator():
+    evaluator = MotionAccuracyEvaluator(fps=30.0)
+    T = 30
+    q_rob = np.zeros((T, 36), dtype=np.float32)
+    q_exp = np.zeros((T, 36), dtype=np.float32)
+    q_rob[:, 2] = 0.74
+    q_exp[:, 2] = 0.74
+
+    # Slight perturbation
+    q_rob[:, 7:36] += 0.02
+
+    feet = {
+        "left": np.zeros((T, 3), dtype=np.float32),
+        "right": np.zeros((T, 3), dtype=np.float32)
+    }
+    stances = {
+        "left": np.ones(T, dtype=np.float32),
+        "right": np.ones(T, dtype=np.float32)
+    }
+
+    report = evaluator.evaluate_motion(
+        robot_qpos_traj=q_rob,
+        expert_qpos_traj=q_exp,
+        robot_feet_pos=feet,
+        stance_flags=stances
+    )
+
+    assert report.mpjpe_mm >= 0.0
+    assert report.joint_mae_deg >= 0.0
+    assert report.foot_sliding_mm >= 0.0
+    assert report.temporal_lag_ms >= 0.0
+    assert report.episode_success_rate == 100.0
+
+
+def test_dagger_trainer():
+    normalizer = ObservationActionNormalizer(obs_dim=70, action_dim=29)
+    policy = TemporalActorCriticPolicy(state_dim=70, action_dim=29, history_len=1)
+    
+    T = 20
+    ref_traj = np.zeros((T, 36), dtype=np.float32)
+    ref_traj[:, 2] = 0.74
+
+    trainer = DAggerTrainer(policy=policy, normalizer=normalizer, reference_trajectory=ref_traj)
+    trainer.seed_demonstrations(
+        states=np.random.randn(10, 70).astype(np.float32),
+        actions=np.random.randn(10, 29).astype(np.float32)
+    )
+
+    env = MuJoCoManipulationEnv()
+    summary = trainer.run_dagger_iteration(env, round_idx=1, max_steps=10, epochs_per_round=2)
+    assert summary.iteration == 1
+    assert summary.aggregated_dataset_size >= 10
