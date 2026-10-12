@@ -10,6 +10,18 @@
 
 ---
 
+## 🎬 Synchronized Simulation Video (1080p with Audio)
+
+![Human-to-Humanoid 1:1 Salsa Synchronization](docs/demo_salsa_preview.gif)
+
+- **Direct Repository Video**: [videos/atlas_salsa_exact_match_30s.mp4](videos/atlas_salsa_exact_match_30s.mp4)
+- **High-Speed Direct Download**: [Download atlas_salsa_exact_match_30s.mp4 (Release v1.0.0)](https://github.com/Utsav92/ATLAS_HUMANOID_AI_4D/releases/download/v1.0.0/atlas_salsa_exact_match_30s.mp4)
+- **Release Page**: [GitHub Release v1.0.0](https://github.com/Utsav92/ATLAS_HUMANOID_AI_4D/releases/tag/v1.0.0)
+
+> **Key Capabilities**: 9,000 sub-step rigid bone IK, dynamic ground clamping ($Z = 0.0000\text{ m}$ zero floating feet), full $1.0\text{ m}$ arm excursion, $187.5\text{ BPM}$ musical beat synchronization, and $100\%$ MuJoCo physics tracking fidelity.
+
+---
+
 ## Hardware & Operating Specifications
 
 - **Operating System**: Windows 10/11
