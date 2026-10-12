@@ -10,8 +10,8 @@
     "status": "PASSED"
   },
   "slam_accuracy": {
-    "ate_rmse_mm": 13.237927818444197,
-    "rpe_rmse_mm": 19.83714992396411,
+    "ate_rmse_mm": 13.93128565152225,
+    "rpe_rmse_mm": 18.41711395127057,
     "status": "PASSED"
   },
   "nlp_pipeline": {
@@ -19,9 +19,9 @@
     "status": "PASSED"
   },
   "neural_deployment": {
-    "p50_latency_ms": 0.06974994903430343,
-    "p95_latency_ms": 0.1416400307789445,
-    "mean_latency_ms": 0.08664300083182752,
+    "p50_latency_ms": 0.11389999417588115,
+    "p95_latency_ms": 0.14365004026331007,
+    "mean_latency_ms": 0.11254600365646183,
     "status": "PASSED"
   },
   "end_to_end_demonstration": {

@@ -146,12 +146,18 @@ def main():
 
         # Save verification snapshots
         brain_dir = "C:/Users/Utsav/.gemini/antigravity/brain/bf9fcd1b-d708-48b1-8610-01f91dc277ee"
-        if i + 1 == 91: # t=3.00s - Relaxed intro bounce
+        if i + 1 == 39: # t=1.27s - Opening salsa wave (User Image 1)
+            cv2.imwrite("evaluation/fixed_user1_t1_27.png", composite)
+            cv2.imwrite(f"{brain_dir}/fixed_user1_t1_27.png", composite)
+        elif i + 1 == 91: # t=3.00s - Relaxed intro bounce
             cv2.imwrite("evaluation/img3_verified_t03_00.png", composite)
             cv2.imwrite(f"{brain_dir}/img3_verified_t03_00.png", composite)
         elif i + 1 == 150: # t=5.0s
             cv2.imwrite("evaluation/9000_match_preview_t05.png", composite)
             cv2.imwrite(f"{brain_dir}/9000_match_preview_t05.png", composite)
+        elif i + 1 == 192: # t=6.37s - Standing salsa dive bow (User Image 2)
+            cv2.imwrite("evaluation/fixed_user2_t6_37.png", composite)
+            cv2.imwrite(f"{brain_dir}/fixed_user2_t6_37.png", composite)
         elif i + 1 == 217: # t=7.20s - Deep forward dive
             cv2.imwrite("evaluation/img4_verified_t07_20.png", composite)
             cv2.imwrite(f"{brain_dir}/img4_verified_t07_20.png", composite)

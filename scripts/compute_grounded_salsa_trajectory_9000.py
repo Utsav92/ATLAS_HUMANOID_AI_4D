@@ -102,24 +102,17 @@ def main():
         lean_up = v_torso[2]
         theta_lean = np.arctan2(lean_fwd, lean_up)
 
-        # Pelvis pitch vs Waist pitch:
-        # Deep dive ONLY during choreographic window (6.8s <= t <= 7.6s)
-        t_sec = i / 300.0
-        if 6.8 <= t_sec <= 7.6:
-            w_dive = 1.0 if (7.0 <= t_sec <= 7.4) else 0.5 * (1.0 - np.cos(np.pi * (t_sec - 6.8) / 0.2 if t_sec < 7.0 else np.pi * (7.6 - t_sec) / 0.2))
-            pelvis_pitch = w_dive * max(0.0, theta_lean - 0.35)
-            waist_pitch = 0.35 * w_dive + np.clip(theta_lean, -0.45, 0.45) * (1 - w_dive)
-        else:
-            pelvis_pitch = 0.0
-            waist_pitch = np.clip(theta_lean, -0.45, 0.45)
+        # Waist pitch carries the forward lean naturally
+        # Keep pelvis level to ensure the robot never collapses or falls onto the floor
+        pelvis_pitch = 0.0
+        waist_pitch = np.clip(theta_lean, -0.48, 0.48)
 
-        # Pelvis Quaternion (Rz(yaw) * Ry(pitch))
+        # Pelvis Quaternion (Rz(yaw))
         cy, sy = np.cos(psi / 2.0), np.sin(psi / 2.0)
-        cp, sp = np.cos(pelvis_pitch / 2.0), np.sin(pelvis_pitch / 2.0)
-        qw = cy * cp
-        qx = -sy * sp
-        qy = cy * sp
-        qz = sy * cp
+        qw = cy
+        qx = 0.0
+        qy = 0.0
+        qz = sy
 
         q_traj[i, 0] = root_x[i]
         q_traj[i, 1] = root_y[i]
@@ -255,21 +248,28 @@ def main():
             lat_screen_mag = abs(dy_screen)
 
             # Pitch: forward is negative, backward is positive
-            pitch = -np.arctan2(u_loc[0], -u_loc[2] + 1e-6)
+            # Continuous arcsin avoids elevation singularities
+            pitch = -np.arcsin(np.clip(u_loc[0], -0.95, 0.95))
 
             # Roll: lateral abduction
-            horiz = np.sqrt(u_loc[0]**2 + u_loc[2]**2)
             if side == 'L':
-                roll = np.arctan2(u_loc[1], horiz + 1e-6)
+                roll = np.arctan2(u_loc[1], -u_loc[2] + 1e-6)
             else:
-                roll = -np.arctan2(-u_loc[1], horiz + 1e-6)
+                roll = -np.arctan2(-u_loc[1], -u_loc[2] + 1e-6)
 
             # Elbow flexion
             cos_el = np.clip(np.dot(u_upper, u_fore), -1.0, 1.0)
             bend_el = np.arccos(cos_el)
-            # When arm is straight (bend_el < 0.35 rad):
-            if bend_el < 0.35:
-                elbow = -0.50 if u_loc[0] > 0.3 else 1.20
+
+            # In Unitree G1, when arm is abducted laterally (roll > 0.6 rad),
+            # negative elbow folds forearm inward across chest, while positive folds backward.
+            # When arm is down or forward, positive elbow folds forearm forward.
+            is_abducted_inward = (side == 'L' and u_loc[1] > 0.4 and v_loc[1] < u_loc[1]) or \
+                                 (side == 'R' and u_loc[1] < -0.4 and v_loc[1] > u_loc[1])
+            if is_abducted_inward:
+                elbow = -np.clip(bend_el, 0.20, 1.05)
+            elif bend_el < 0.35:
+                elbow = -0.30 if u_loc[0] > 0.3 else 1.10
             else:
                 elbow = np.clip(1.52 - bend_el * 1.25, -0.80, 1.50)
 
@@ -283,24 +283,59 @@ def main():
             q_traj[i, q_el] = np.clip(elbow, -1.0, 1.5)
 
         # ---------------------------------------------------------------------
-        # SPECIALIZED CHOREOGRAPHIC STYLING & WATERMARK DE-NOISING
+        # SPECIALIZED CHOREOGRAPHIC STYLING & CLEAN DANCE SYNTHESIS
         # ---------------------------------------------------------------------
         t_sec = i / 300.0
 
-        # 1. Intro bounce (0.0s - 4.2s): Watermark '@SALSAMISAKI' occludes chest/arms;
-        #    Dancer does relaxed intro bounce with hands loose by hips/thighs.
-        if t_sec < 4.2:
-            w_intro = 1.0 if t_sec < 3.6 else 0.5 * (1.0 + np.cos(np.pi * (t_sec - 3.6) / 0.6))
-            # Left arm relaxed by hip
-            q_traj[i, 22] = (1 - w_intro) * q_traj[i, 22] + w_intro * 0.15
-            q_traj[i, 23] = (1 - w_intro) * q_traj[i, 23] + w_intro * 0.25
-            q_traj[i, 24] = (1 - w_intro) * q_traj[i, 24] + w_intro * 0.00
-            q_traj[i, 25] = (1 - w_intro) * q_traj[i, 25] + w_intro * 1.05
-            # Right arm relaxed by hip
-            q_traj[i, 29] = (1 - w_intro) * q_traj[i, 29] + w_intro * 0.15
-            q_traj[i, 30] = (1 - w_intro) * q_traj[i, 30] + w_intro * -0.25
-            q_traj[i, 31] = (1 - w_intro) * q_traj[i, 31] + w_intro * 0.00
-            q_traj[i, 32] = (1 - w_intro) * q_traj[i, 32] + w_intro * 1.05
+        # 1. Intro salsa beat groove (0.0s - 0.8s): Hands actively grooving in front of hips/ribs
+        if t_sec < 0.8:
+            w_groove = 0.5 * (1.0 + np.cos(np.pi * t_sec / 0.8))
+            q_traj[i, 22] = (1 - w_groove) * q_traj[i, 22] + w_groove * -0.15
+            q_traj[i, 23] = (1 - w_groove) * q_traj[i, 23] + w_groove * 0.35
+            q_traj[i, 25] = (1 - w_groove) * q_traj[i, 25] + w_groove * 0.85
+            q_traj[i, 29] = (1 - w_groove) * q_traj[i, 29] + w_groove * -0.15
+            q_traj[i, 30] = (1 - w_groove) * q_traj[i, 30] + w_groove * -0.35
+            q_traj[i, 32] = (1 - w_groove) * q_traj[i, 32] + w_groove * 0.85
+
+        # 2. Opening salsa wave gesture (0.8s - 1.8s, centered at 1.3s - Image 1 match):
+        # Left arm flares horizontally at shoulder level, forearm folded horizontally framing chest, right arm framing waist
+        if 0.8 <= t_sec <= 1.8:
+            if t_sec < 1.1:
+                w_wave = 0.5 * (1.0 - np.cos(np.pi * (t_sec - 0.8) / 0.3))
+            elif t_sec > 1.5:
+                w_wave = 0.5 * (1.0 + np.cos(np.pi * (t_sec - 1.5) / 0.3))
+            else:
+                w_wave = 1.0
+            # Left arm: Opening salsa wave
+            q_traj[i, 22] = (1 - w_wave) * q_traj[i, 22] + w_wave * 0.05
+            q_traj[i, 23] = (1 - w_wave) * q_traj[i, 23] + w_wave * 1.25
+            q_traj[i, 24] = (1 - w_wave) * q_traj[i, 24] + w_wave * 0.00
+            q_traj[i, 25] = (1 - w_wave) * q_traj[i, 25] + w_wave * -0.70
+            # Right arm: relaxed framing waist
+            q_traj[i, 29] = (1 - w_wave) * q_traj[i, 29] + w_wave * 0.15
+            q_traj[i, 30] = (1 - w_wave) * q_traj[i, 30] + w_wave * -0.35
+            q_traj[i, 31] = (1 - w_wave) * q_traj[i, 31] + w_wave * 0.00
+            q_traj[i, 32] = (1 - w_wave) * q_traj[i, 32] + w_wave * 0.85
+
+        # 3. Salsa dive & forward bow (6.0s - 7.6s - Image 2 match):
+        # Torso leans forward gracefully, arms winged back behind torso, standing poised on feet (never falling down)
+        if 6.0 <= t_sec <= 7.6:
+            if t_sec < 6.4:
+                w_dive_arms = 0.5 * (1.0 - np.cos(np.pi * (t_sec - 6.0) / 0.4))
+            elif t_sec > 7.3:
+                w_dive_arms = 0.5 * (1.0 + np.cos(np.pi * (t_sec - 7.3) / 0.3))
+            else:
+                w_dive_arms = 1.0
+            # Left arm winged back
+            q_traj[i, 22] = (1 - w_dive_arms) * q_traj[i, 22] + w_dive_arms * 0.55
+            q_traj[i, 23] = (1 - w_dive_arms) * q_traj[i, 23] + w_dive_arms * 0.25
+            q_traj[i, 24] = (1 - w_dive_arms) * q_traj[i, 24] + w_dive_arms * 0.00
+            q_traj[i, 25] = (1 - w_dive_arms) * q_traj[i, 25] + w_dive_arms * 0.20
+            # Right arm winged back
+            q_traj[i, 29] = (1 - w_dive_arms) * q_traj[i, 29] + w_dive_arms * 0.55
+            q_traj[i, 30] = (1 - w_dive_arms) * q_traj[i, 30] + w_dive_arms * -0.25
+            q_traj[i, 31] = (1 - w_dive_arms) * q_traj[i, 31] + w_dive_arms * 0.00
+            q_traj[i, 32] = (1 - w_dive_arms) * q_traj[i, 32] + w_dive_arms * 0.20
 
         # 2. Salsa styling groove (8.5s - 9.5s): Left elbow flared high and outward
         #    at shoulder level (90 deg), hand in front of chest, right arm down along thigh.
@@ -347,8 +382,8 @@ def main():
         z_min_sole = min(z_sole_l, z_sole_r)
         pelvis_z[i] = -z_min_sole
 
-    # Keep pelvis within clean dancing height (poised in standing, accommodates deep dive bow)
-    pelvis_z = np.clip(pelvis_z, 0.50, 0.78)
+    # Keep pelvis within clean dancing height: tall and poised (0.72m - 0.78m), never collapsing onto floor
+    pelvis_z = np.clip(pelvis_z, 0.72, 0.78)
     pelvis_z_smooth = np.convolve(pelvis_z, np.ones(9)/9.0, mode='same')
     for i in range(N):
         q_test = q_traj[i].copy()
